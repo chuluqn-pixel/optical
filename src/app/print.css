@@ -1,0 +1,21 @@
+@media screen {
+  #print-content {
+    display: none;
+  }
+}
+
+@media print {
+  body .no-print {
+    display: none;
+  }
+
+  body.print-nota #resep-print-area,
+  body.print-resep #nota-print-area {
+    display: none;
+  }
+
+  body.print-nota #nota-print-area,
+  body.print-resep #resep-print-area {
+    display: block;
+  }
+}

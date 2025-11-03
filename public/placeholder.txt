@@ -1,0 +1,1 @@
+This file is created to ensure the 'public' directory is generated. You can delete this file. Please add your favicon.ico or other static assets here.
