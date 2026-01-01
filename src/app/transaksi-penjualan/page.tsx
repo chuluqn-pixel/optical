@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc, getDocs, collection, arrayUnion } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, database } from "@/lib/firebase";
 import PageWrapper from "@/components/layout/PageWrapper";
@@ -102,7 +102,7 @@ const CustomerSection = React.memo(({ customerDetails, orderAndStaff, onCustomer
                     <Label htmlFor="id_user">Karyawan</Label>
                      <Select value={orderAndStaff.id_user} onValueChange={v => onOrderChange('id_user', v)}>
                         <SelectTrigger><SelectValue placeholder="- Pilih Karyawan -" /></SelectTrigger>
-                        <SelectContent>{allUsers.map((u:any, index: number) => <SelectItem key={`${u.id_user}-${index}`} value={u.id_user}>{u.nama_lengkap}</SelectItem>)}</SelectContent>
+                        <SelectContent>{allUsers.map((u:any, index: number) => <SelectItem key={`${u.id_pengguna || u.id_user}-${index}`} value={u.id_pengguna || u.id_user}>{u.nama_lengkap}</SelectItem>)}</SelectContent>
                     </Select>
                 </div>
             </div>
@@ -454,28 +454,79 @@ export default function TransaksiPenjualanPage() {
     }
     
     try {
-        const [usersSnap, doctorsSnap, optikSnap, instansiSnap, lensSettingsSnap, productsSnap, categoriesSnap] = await Promise.all([
-            getDoc(doc(database, "migrated_data", USERS_DOC_ID)),
-            getDoc(doc(database, "migrated_data", DOCTORS_DOC_ID)),
-            getDoc(doc(database, "migrated_data", OPTIK_DOC_ID)),
-            getDoc(doc(database, "migrated_data", INSTANSI_DOC_ID)),
-            getDoc(doc(database, "migrated_data", LENS_SETTINGS_DOC_ID)),
-            getDoc(doc(database, "migrated_data", PRODUCTS_DOC_ID)),
-            getDoc(doc(database, "migrated_data", CATEGORIES_DOC_ID)),
-        ]);
-
-        setAllUsers(usersSnap.data()?.data || []);
-        setAllDoctors(doctorsSnap.data()?.data || []);
-        setAllProducts(productsSnap.data()?.data || []);
-        setAllCategories(categoriesSnap.data()?.data || []);
+        const querySnapshot = await getDocs(collection(database, "migrated_data"));
         
-        const optikData = optikSnap.data()?.data || [];
-        const instansiData = instansiSnap.data()?.data || [];
-        setAllOptik([...optikData, ...instansiData]);
+        let users: any[] = [];
+        let doctors: any[] = [];
+        let optik: any[] = [];
+        let instansi: any[] = [];
+        let lensSettingsData: any[] = [];
+        let products: any[] = [];
+        let categories: any[] = [];
 
-        if (lensSettingsSnap.exists() && lensSettingsSnap.data()?.data?.length > 0) {
-            setLensSettings(lensSettingsSnap.data()?.data[0]);
-        }
+        querySnapshot.forEach((doc) => {
+            const docData = doc.data();
+            // Check by doc ID first
+            switch(doc.id) {
+                case USERS_DOC_ID:
+                    users = docData.data || [];
+                    break;
+                case DOCTORS_DOC_ID:
+                    doctors = docData.data || [];
+                    break;
+                case OPTIK_DOC_ID:
+                    optik = docData.data || [];
+                    break;
+                case INSTANSI_DOC_ID:
+                    instansi = docData.data || [];
+                    break;
+                case LENS_SETTINGS_DOC_ID:
+                    lensSettingsData = docData.data || [];
+                    break;
+                case PRODUCTS_DOC_ID:
+                    products = docData.data || [];
+                    break;
+                case CATEGORIES_DOC_ID:
+                    categories = docData.data || [];
+                    break;
+            }
+            
+            // Fallback to checking the name property inside data if it exists
+            if (docData.data && docData.data.name) {
+                 switch(docData.data.name) {
+                    case 'rb_user':
+                        users = docData.data.data || [];
+                        break;
+                    case 'rb_dokter':
+                        doctors = docData.data.data || [];
+                        break;
+                    case 'rb_optik':
+                        optik = docData.data.data || [];
+                        break;
+                     case 'rb_instansi':
+                        instansi = docData.data.data || [];
+                        break;
+                    case 'rb_setting_lensa':
+                        lensSettingsData = docData.data.data || [];
+                        break;
+                    case 'rb_produk':
+                        products = docData.data.data || [];
+                        break;
+                    case 'rb_kategori':
+                        categories = docData.data.data || [];
+                        break;
+                }
+            }
+        });
+
+        setAllUsers(users);
+        setAllDoctors(doctors);
+        setAllProducts(products);
+        setAllCategories(categories);
+        setAllOptik([...optik, ...instansi]);
+        setLensSettings(lensSettingsData && lensSettingsData.length > 0 ? lensSettingsData[0] : null);
+
+
         if (isRefresh) {
             toast({ title: "Data diperbarui", description: "Daftar produk telah berhasil diperbarui." });
         }
@@ -491,10 +542,26 @@ export default function TransaksiPenjualanPage() {
   }, [toast]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        setOrderAndStaff(prev => ({ ...prev, id_user: currentUser.uid }));
+        // Find the corresponding user from the fetched user list to get the id_user
+        const userDocRef = doc(database, "migrated_data", USERS_DOC_ID);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            const usersData = userDocSnap.data()?.data;
+            if (Array.isArray(usersData)) {
+                 const appUser = usersData.find(u => u.id_pengguna === currentUser.uid || u.email === currentUser.email);
+                 if (appUser) {
+                    setOrderAndStaff(prev => ({ ...prev, id_user: appUser.id_user }));
+                 } else {
+                    setOrderAndStaff(prev => ({ ...prev, id_user: currentUser.uid }));
+                 }
+            }
+        } else {
+             setOrderAndStaff(prev => ({ ...prev, id_user: currentUser.uid }));
+        }
+
       } else {
         router.push("/login");
       }
@@ -616,7 +683,6 @@ export default function TransaksiPenjualanPage() {
     
     const sisaBayarValue = paymentDifference > 0 ? paymentDifference : 0;
 
-    // Logic to determine sales category
     const cartProductCategories = new Set(cart.map(item => {
         const product = allProducts.find(p => p.id_produk === item.id_produk);
         const category = allCategories.find(c => c.id_kategori === product?.id_kategori);
@@ -637,7 +703,7 @@ export default function TransaksiPenjualanPage() {
         ...customerDetails,
         ...orderAndStaff,
         kategori_penjualan,
-        dibuat_pada: serverTimestamp(),
+        dibuat_pada: new Date().toISOString(),
         tanggal_pesan: format(new Date(orderAndStaff.tanggal_pesan), "dd/MM/yyyy"),
         tanggal_selesai: orderAndStaff.tanggal_selesai ? format(new Date(orderAndStaff.tanggal_selesai), "dd/MM/yyyy") : "",
         tanggal_ambil: orderAndStaff.tanggal_ambil ? format(new Date(orderAndStaff.tanggal_ambil), "dd/MM/yyyy") : "",
@@ -645,7 +711,7 @@ export default function TransaksiPenjualanPage() {
         bayar_instansi: financials.bayar_instansi.replace(/,/g, '') || "0",
         jumlah_bayar: financials.jumlah_bayar.replace(/,/g, '') || "0",
         total_jual: totalBayar.toString(),
-        total_modal: "0", // This needs to be calculated if modal price is available
+        total_modal: "0", 
         sisa_bayar: sisaBayarValue.toString(),
         status: sisaBayarValue > 0 ? "panjar" : "lunas",
     };
@@ -658,12 +724,16 @@ export default function TransaksiPenjualanPage() {
     const prescriptionData = { id_orders: newOrderId, ...prescription };
 
     try {
-        // Save transaction data
-        await updateDoc(doc(database, "migrated_data", SALES_DOC_ID), { data: arrayUnion(salesHeaderData) });
-        await updateDoc(doc(database, "migrated_data", SALES_DETAIL_DOC_ID), { data: arrayUnion(...salesDetailData) });
-        await updateDoc(doc(database, "migrated_data", PRESCRIPTION_DOC_ID), { data: arrayUnion(prescriptionData) });
+        await updateDoc(doc(database, "migrated_data", SALES_DOC_ID), {
+            data: arrayUnion(salesHeaderData)
+        });
+        await updateDoc(doc(database, "migrated_data", SALES_DETAIL_DOC_ID), {
+            data: arrayUnion(...salesDetailData)
+        });
+        await updateDoc(doc(database, "migrated_data", PRESCRIPTION_DOC_ID), {
+            data: arrayUnion(prescriptionData)
+        });
 
-        // Update product stock
         const productDocRef = doc(database, "migrated_data", PRODUCTS_DOC_ID);
         const productsSnap = await getDoc(productDocRef);
         const currentProducts = productsSnap.data()?.data || [];
@@ -679,7 +749,6 @@ export default function TransaksiPenjualanPage() {
 
         await updateDoc(productDocRef, { data: updatedProducts });
         setAllProducts(updatedProducts);
-
 
         toast({ title: "Sukses!", description: "Transaksi berhasil disimpan dan stok telah diperbarui." });
         resetForm();

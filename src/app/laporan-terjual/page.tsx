@@ -33,7 +33,7 @@ const SALES_DETAIL_DOC_ID = "oQu7zep2d8jM7ChPE3Ja";
 const PRODUCTS_DOC_ID = "4McBCfDf5XJnXnw2x8Xm";
 const USERS_DOC_ID = "b7ojJpFKj4RNIkQneCpu";
 
-export default function LaporanTerjualPage() {
+export default function LaporanlPage() {
   const [user, setUser] = useState<User | null>(null);
   const [salesData, setSalesData] = useState<any[]>([]);
   const [salesDetailData, setSalesDetailData] = useState<any[]>([]);
@@ -84,16 +84,7 @@ export default function LaporanTerjualPage() {
         sortedData.sort((a, b) => {
             let valA, valB;
 
-            if (sortConfig.key === 'total_modal') {
-                valA = a.total_modal_calculated;
-                valB = b.total_modal_calculated;
-            } else if (sortConfig.key === 'keuntungan') {
-                valA = parseFloat(a.total_jual || 0) - a.total_modal_calculated;
-                valB = parseFloat(b.total_jual || 0) - b.total_modal_calculated;
-            } else if (['total_jual', 'jumlah_bayar'].includes(sortConfig.key)) {
-                valA = parseFloat(a[sortConfig.key] || 0);
-                valB = parseFloat(b[sortConfig.key] || 0);
-            } else if (sortConfig.key === 'tanggal_pesan') {
+            if (sortConfig.key === 'tanggal_pesan') {
                 try {
                     valA = parse(a.tanggal_pesan, "dd/MM/yyyy", new Date()).getTime();
                     valB = parse(b.tanggal_pesan, "dd/MM/yyyy", new Date()).getTime();
@@ -214,7 +205,7 @@ export default function LaporanTerjualPage() {
     const headers = [
       "No Orders", "No Ref", "Nama Pemesan", "Alamat", "Tanggal Pesan",
       "Karyawan", "Status", "Kode Produk", "Nama Produk", "Jumlah", "Harga Satuan", "Total Harga Item",
-      "Total Modal Transaksi", "Total Jual Transaksi", "Total Bayar Transaksi", "Keuntungan Transaksi"
+      "Total Bayar Transaksi", 
     ];
 
     const dataForCSV = salesData.flatMap(sale => {
@@ -233,10 +224,7 @@ export default function LaporanTerjualPage() {
                 "Jumlah": "0",
                 "Harga Satuan": "0",
                 "Total Harga Item": "0",
-                "Total Modal Transaksi": sale.total_modal || "0",
-                "Total Jual Transaksi": sale.total_jual || "0",
-                "Total Bayar Transaksi": sale.jumlah_bayar || "0",
-                "Keuntungan Transaksi": (parseFloat(sale.total_jual || 0) - parseFloat(sale.total_modal || 0)).toString(),
+               "Total Bayar Transaksi": sale.jumlah_bayar || "0",
             }];
         }
         return details.map(detail => ({
@@ -252,10 +240,7 @@ export default function LaporanTerjualPage() {
             "Jumlah": detail.jumlah,
             "Harga Satuan": detail.harga,
             "Total Harga Item": (parseFloat(detail.jumlah) * parseFloat(detail.harga)).toString(),
-            "Total Modal Transaksi": sale.total_modal || "0",
-            "Total Jual Transaksi": sale.total_jual || "0",
-            "Total Bayar Transaksi": sale.jumlah_bayar || "0",
-            "Keuntungan Transaksi": (parseFloat(sale.total_jual || 0) - parseFloat(sale.total_modal || 0)).toString(),
+           "Total Bayar Transaksi": sale.jumlah_bayar || "0",
         }));
     });
 
@@ -307,10 +292,8 @@ export default function LaporanTerjualPage() {
       );
     }
     
-    const totalModal = paginatedData.reduce((sum, item) => sum + (item.total_modal_calculated || 0), 0);
-    const totalJual = paginatedData.reduce((sum, item) => sum + parseFloat(item.total_jual || 0), 0);
     const totalBayar = paginatedData.reduce((sum, item) => sum + parseFloat(item.jumlah_bayar || 0), 0);
-    const keuntungan = totalJual - totalModal;
+    const totalSisaBayar = paginatedData.reduce((sum, item) => sum + parseFloat(item.sisa_bayar || 0), 0);
 
     return (
       <>
@@ -322,10 +305,8 @@ export default function LaporanTerjualPage() {
             <TableCell>{item.alamat}</TableCell>
             <TableCell>{formatTanggal(item.tanggal_pesan)}</TableCell>
             <TableCell>{getNamaKaryawan(item.id_user)}</TableCell>
-            <TableCell>{formatCurrency(item.total_modal_calculated)}</TableCell>
-            <TableCell>{formatCurrency(item.total_jual)}</TableCell>
-            <TableCell className="text-red-500">{formatCurrency(item.jumlah_bayar)}</TableCell>
-            <TableCell>{formatCurrency(parseFloat(item.total_jual) - item.total_modal_calculated)}</TableCell>
+           <TableCell className="text-red-500">{formatCurrency(item.jumlah_bayar)}</TableCell>
+            <TableCell className="text-red-500 font-bold">{formatCurrency(item.sisa_bayar)}</TableCell>
             <TableCell>
               <Button asChild variant="outline" size="sm" className="bg-green-500 hover:bg-green-600 text-white">
                 <Link href={`/laporan-terjual/${item.id_orders}`}target="_blank">
@@ -337,11 +318,9 @@ export default function LaporanTerjualPage() {
         ))}
          <TableRow className="font-bold bg-slate-200">
             <TableCell colSpan={6} className="text-center">Total</TableCell>
-            <TableCell>{formatCurrency(totalModal)}</TableCell>
-            <TableCell>{formatCurrency(totalJual)}</TableCell>
             <TableCell className="text-red-500">{formatCurrency(totalBayar)}</TableCell>
-            <TableCell>{formatCurrency(keuntungan)}</TableCell>
-            <TableCell></TableCell>
+            <TableCell className="text-red-500">{formatCurrency(totalSisaBayar)}</TableCell>
+           <TableCell></TableCell>
         </TableRow>
       </>
     );
@@ -449,23 +428,13 @@ export default function LaporanTerjualPage() {
                            </Button>
                         </TableHead>
                         <TableHead className="text-white">
-                           <Button variant="ghost" onClick={() => requestSort('total_modal')} className="text-white hover:text-gray-300">
-                             Total Modal {getSortIndicator('total_modal')}
-                           </Button>
-                        </TableHead>
-                        <TableHead className="text-white">
-                           <Button variant="ghost" onClick={() => requestSort('total_jual')} className="text-white hover:text-gray-300">
-                             Total Jual {getSortIndicator('total_jual')}
-                           </Button>
-                        </TableHead>
-                        <TableHead className="text-white">
                            <Button variant="ghost" onClick={() => requestSort('jumlah_bayar')} className="text-white hover:text-gray-300">
                              Total Bayar {getSortIndicator('jumlah_bayar')}
                            </Button>
                         </TableHead>
                         <TableHead className="text-white">
-                           <Button variant="ghost" onClick={() => requestSort('keuntungan')} className="text-white hover:text-gray-300">
-                             Keuntungan {getSortIndicator('keuntungan')}
+                           <Button variant="ghost" onClick={() => requestSort('sisa_bayar')} className="text-white hover:text-gray-300">
+                             Kurang Bayar {getSortIndicator('sisa_bayar')}
                            </Button>
                         </TableHead>
                         <TableHead className="text-white">Action</TableHead>
