@@ -168,9 +168,31 @@ export default function LaporanDetailTerjualPage() {
     return optik || null;
   };
   
-  const getKaryawanName = (userId: string) => {
-    return getReferenceData(allUsers, userId, "id_user", "nama_lengkap");
-  }
+  const getKaryawanName = (userId: string, saleItem?: any) => {
+    if (saleItem?.nama_karyawan) return saleItem.nama_karyawan;
+    if (saleItem?.nama_user) return saleItem.nama_user;
+    if (saleItem?.karyawan) return saleItem.karyawan;
+    if (saleItem?.kasir) return saleItem.kasir;
+    if (!userId || userId === "undefined" || userId === "null") return "-";
+
+    const cleanId = String(userId).trim();
+    if (allUsers && Array.isArray(allUsers)) {
+      const pengguna = allUsers.find((p) => {
+        if (!p) return false;
+        return (
+          (p.id_pengguna && String(p.id_pengguna).trim() === cleanId) ||
+          (p.id_user && String(p.id_user).trim() === cleanId) ||
+          (p.uid && String(p.uid).trim() === cleanId) ||
+          (p.email && String(p.email).toLowerCase().trim() === cleanId.toLowerCase()) ||
+          (p.username && String(p.username).toLowerCase().trim() === cleanId.toLowerCase())
+        );
+      });
+      if (pengguna) {
+        return pengguna.nama_lengkap || pengguna.username || pengguna.email || cleanId;
+      }
+    }
+    return cleanId;
+  };
 
   const formatCurrency = (value: string | number) => {
     const numberValue = typeof value === 'string' ? parseFloat(value) : value;
@@ -354,7 +376,7 @@ export default function LaporanDetailTerjualPage() {
                     </div>
                     <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                         <Label>Karyawan</Label>
-                        <Input readOnly value={getKaryawanName(sale.id_user)} className="bg-muted"/>
+                        <Input readOnly value={getKaryawanName(sale.id_user, sale)} className="bg-muted"/>
                     </div>
                      <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                         <Label>Tanggal Selesai</Label>

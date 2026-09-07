@@ -274,7 +274,7 @@ const ProductSelectionModal = ({ open, onOpenChange, allProducts, onAddProducts,
 
 
     useEffect(() => {
-        const cartProductIds = new Set(cart.map((p:any) => p.id_produk));
+        const cartProductIds = new Set<string>(cart.map((p:any) => String(p.id_produk)));
         setSelectedProducts(cartProductIds);
     }, [open, cart]);
     
@@ -355,11 +355,11 @@ const ProductSelectionModal = ({ open, onOpenChange, allProducts, onAddProducts,
                             <TableRow>
                                 <TableHead className="w-12">
                                     <Checkbox 
-                                        checked={paginatedProducts.length > 0 && paginatedProducts.every(p => selectedProducts.has(p.id_produk))}
+                                        checked={paginatedProducts.length > 0 && paginatedProducts.every((p: any) => selectedProducts.has(p.id_produk))}
                                         onCheckedChange={(checked) => {
                                             setSelectedProducts(prev => {
                                                 const newSet = new Set(prev);
-                                                paginatedProducts.forEach(p => {
+                                                paginatedProducts.forEach((p: any) => {
                                                     const isOutOfStock = parseInt(p.stok || "0", 10) <= 0;
                                                     if(checked && !isOutOfStock) {
                                                         newSet.add(p.id_produk)

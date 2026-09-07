@@ -42,6 +42,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -78,6 +79,36 @@ export default function ProdukPageContent() {
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [isSavingTx, setIsSavingTx] = useState(false);
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(false);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    id_produk: "",
+    no: 0,
+    kode_produk: "",
+    nama_produk: "",
+    harga: "",
+    harga_modal: "",
+    stok: "",
+    warning: "",
+    keterangan: "",
+    id_kategori: "",
+    id_supplier: "",
+  });
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSavingAdd, setIsSavingAdd] = useState(false);
+  const [addFormData, setAddFormData] = useState({
+    kode_produk: "",
+    nama_produk: "",
+    harga: "",
+    harga_modal: "",
+    stok: "",
+    id_supplier: "",
+    warning: "",
+    keterangan: "",
+    id_kategori: "",
+  });
   
   // New state for multi-product transaction
   const [poHeader, setPoHeader] = useState({
@@ -392,6 +423,169 @@ export default function ProdukPageContent() {
     }
   };
 
+  const handleOpenEditModal = (item: any) => {
+    setEditFormData({
+      id_produk: item.id_produk || "",
+      no: item.no,
+      kode_produk: item.kode_produk || "",
+      nama_produk: item.nama_produk || "",
+      harga: item.harga !== undefined && item.harga !== null ? String(item.harga) : "",
+      harga_modal: item.harga_modal !== undefined && item.harga_modal !== null ? String(item.harga_modal) : "",
+      stok: item.stok !== undefined && item.stok !== null ? String(item.stok) : "",
+      warning: item.warning !== undefined && item.warning !== null ? String(item.warning) : "",
+      keterangan: item.keterangan || "",
+      id_kategori: item.id_kategori || "",
+      id_supplier: item.id_supplier || "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSelectChange = (name: string, value: string) => {
+    setEditFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) {
+      toast({ variant: "destructive", title: "Anda harus login terlebih dahulu" });
+      return;
+    }
+    if (!editFormData.nama_produk.trim()) {
+      toast({ variant: "destructive", title: "Validasi Gagal", description: "Nama produk wajib diisi." });
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const productDocRef = doc(database, "migrated_data", PRODUCTS_DOC_ID);
+
+      const updatedProducts = productData.map((p) => {
+        const isMatch = editFormData.id_produk
+          ? p.id_produk === editFormData.id_produk
+          : p.no === editFormData.no;
+
+        if (isMatch) {
+          return {
+            ...p,
+            kode_produk: editFormData.kode_produk,
+            nama_produk: editFormData.nama_produk,
+            harga: editFormData.harga,
+            harga_modal: editFormData.harga_modal,
+            stok: editFormData.stok,
+            warning: editFormData.warning,
+            keterangan: editFormData.keterangan,
+            id_kategori: editFormData.id_kategori,
+            id_supplier: editFormData.id_supplier,
+          };
+        }
+        return p;
+      });
+
+      const updatedDataForFirestore = updatedProducts.map(({ no, ...rest }) => rest);
+
+      await updateDoc(productDocRef, { data: updatedDataForFirestore });
+
+      setProductData(updatedProducts);
+      setIsEditModalOpen(false);
+
+      toast({ title: "Sukses", description: "Produk berhasil diperbarui." });
+    } catch (err: any) {
+      console.error("Gagal memperbarui produk:", err);
+      toast({
+        variant: "destructive",
+        title: "Gagal Memperbarui",
+        description: `Terjadi kesalahan: ${err.message}`,
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleOpenAddModal = () => {
+    setAddFormData({
+      kode_produk: "",
+      nama_produk: "",
+      harga: "",
+      harga_modal: "",
+      stok: "",
+      id_supplier: "",
+      warning: "",
+      keterangan: "",
+      id_kategori: "",
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setAddFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddSelectChange = (name: string, value: string) => {
+    setAddFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveAdd = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) {
+      toast({ variant: "destructive", title: "Anda harus login terlebih dahulu" });
+      return;
+    }
+    if (!addFormData.nama_produk.trim()) {
+      toast({ variant: "destructive", title: "Validasi Gagal", description: "Nama produk wajib diisi." });
+      return;
+    }
+
+    setIsSavingAdd(true);
+    try {
+      const productDocRef = doc(database, "migrated_data", PRODUCTS_DOC_ID);
+      const newProduct = {
+        kode_produk: addFormData.kode_produk,
+        nama_produk: addFormData.nama_produk,
+        harga: addFormData.harga || "0",
+        harga_modal: addFormData.harga_modal || "0",
+        stok: addFormData.stok || "0",
+        warning: addFormData.warning || "0",
+        keterangan: addFormData.keterangan || "",
+        id_kategori: addFormData.id_kategori || "",
+        id_supplier: addFormData.id_supplier || "",
+        id_produk: `prod_${Date.now()}`,
+      };
+
+      const updatedDataForFirestore = [
+        ...productData.map(({ no, ...rest }) => rest),
+        newProduct,
+      ];
+
+      await updateDoc(productDocRef, { data: updatedDataForFirestore });
+
+      setProductData((prev) => [
+        ...prev,
+        {
+          ...newProduct,
+          no: prev.length + 1,
+        },
+      ]);
+
+      setIsAddModalOpen(false);
+      toast({ title: "Sukses", description: "Produk baru berhasil ditambahkan." });
+    } catch (err: any) {
+      console.error("Gagal menambahkan produk:", err);
+      toast({
+        variant: "destructive",
+        title: "Gagal Menyimpan",
+        description: `Terjadi kesalahan: ${err.message}`,
+      });
+    } finally {
+      setIsSavingAdd(false);
+    }
+  };
+
   const totalItemsAfterFilter = useMemo(() => {
     let filtered = productData;
      if (selectedCategory !== "all") {
@@ -467,10 +661,14 @@ export default function ProdukPageContent() {
             </TableCell>
             <TableCell>{item.warning}</TableCell>
             <TableCell className="flex gap-2">
-              <Button asChild variant="outline" size="sm" className="bg-green-500 hover:bg-green-600 text-white">
-                <Link href={`/produk/edit/${item.id_produk}`}>
-                  <Pencil className="h-4 w-4 mr-1" /> Edit
-                </Link>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="bg-green-500 hover:bg-green-600 text-white"
+                onClick={() => handleOpenEditModal(item)}
+              >
+                <Pencil className="h-4 w-4 mr-1" /> Edit
               </Button>
                <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -541,8 +739,8 @@ export default function ProdukPageContent() {
                     <Button onClick={() => setIsTxModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
                         Transaksi Produk
                     </Button>
-                    <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
-                        <Link href="/produk/tambah">Tambah Produk</Link>
+                    <Button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700 text-white">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Tambah Produk
                     </Button>
             </div>
         </div>
@@ -663,6 +861,327 @@ export default function ProdukPageContent() {
       setPoFinancials={setPoFinancials}
       financialSummary={poFinancialSummary}
     />
+
+    {/* Modal Edit Produk */}
+    <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-bold">
+            Edit Produk: {editFormData.nama_produk || "-"}
+          </DialogTitle>
+          <DialogDescription>
+            Perbarui data produk di bawah ini lalu klik Simpan.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSaveEdit} className="flex flex-col flex-grow min-h-0">
+          <div className="flex-grow overflow-y-auto pr-1 my-2 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_kode_produk">Kode Produk</Label>
+                <Input
+                  id="edit_kode_produk"
+                  name="kode_produk"
+                  value={editFormData.kode_produk}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_nama_produk">
+                  Nama Produk <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="edit_nama_produk"
+                  name="nama_produk"
+                  value={editFormData.nama_produk}
+                  onChange={handleEditInputChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_id_kategori">Kategori Produk</Label>
+                <Select
+                  name="id_kategori"
+                  value={editFormData.id_kategori || undefined}
+                  onValueChange={(val) => handleEditSelectChange("id_kategori", val)}
+                >
+                  <SelectTrigger id="edit_id_kategori">
+                    <SelectValue placeholder="- Pilih Kategori -" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kategoriData.map((cat) => (
+                      <SelectItem key={cat.id_kategori} value={cat.id_kategori}>
+                        {cat.nama_kategori}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_id_supplier">Nama Distributor</Label>
+                <Select
+                  name="id_supplier"
+                  value={editFormData.id_supplier || undefined}
+                  onValueChange={(val) => handleEditSelectChange("id_supplier", val)}
+                >
+                  <SelectTrigger id="edit_id_supplier">
+                    <SelectValue placeholder="- Pilih Nama Distributor -" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {distributorData.map((dist) => (
+                      <SelectItem key={dist.id_supplier} value={dist.id_supplier}>
+                        {dist.nama_supplier}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_harga">Harga Jual</Label>
+                <Input
+                  id="edit_harga"
+                  name="harga"
+                  type="number"
+                  value={editFormData.harga}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_harga_modal">Harga Modal</Label>
+                <Input
+                  id="edit_harga_modal"
+                  name="harga_modal"
+                  type="number"
+                  value={editFormData.harga_modal}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_stok">Jumlah/Stok</Label>
+                <Input
+                  id="edit_stok"
+                  name="stok"
+                  type="number"
+                  value={editFormData.stok}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit_warning">Warning Batas Stok</Label>
+                <Input
+                  id="edit_warning"
+                  name="warning"
+                  type="number"
+                  value={editFormData.warning}
+                  onChange={handleEditInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="edit_keterangan">Keterangan</Label>
+                <Textarea
+                  id="edit_keterangan"
+                  name="keterangan"
+                  value={editFormData.keterangan}
+                  onChange={handleEditInputChange}
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-4 border-t gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditModalOpen(false)}
+              disabled={isSavingEdit}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSavingEdit}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isSavingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Simpan Perubahan
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+
+    {/* Modal Tambah Produk */}
+    <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-bold">
+            Tambah Produk Baru
+          </DialogTitle>
+          <DialogDescription>
+            Isi formulir berikut untuk menambahkan produk baru ke inventaris.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSaveAdd} className="flex flex-col flex-grow min-h-0">
+          <div className="flex-grow overflow-y-auto pr-1 my-2 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="add_kode_produk">Kode Produk</Label>
+                <Input
+                  id="add_kode_produk"
+                  name="kode_produk"
+                  placeholder="Contoh: PRD-001"
+                  value={addFormData.kode_produk}
+                  onChange={handleAddInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_nama_produk">
+                  Nama Produk <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="add_nama_produk"
+                  name="nama_produk"
+                  placeholder="Contoh: Frame RayBan Classic"
+                  value={addFormData.nama_produk}
+                  onChange={handleAddInputChange}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_id_kategori">Kategori Produk</Label>
+                <Select
+                  name="id_kategori"
+                  value={addFormData.id_kategori || undefined}
+                  onValueChange={(val) => handleAddSelectChange("id_kategori", val)}
+                >
+                  <SelectTrigger id="add_id_kategori">
+                    <SelectValue placeholder="- Pilih Kategori -" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kategoriData.map((cat) => (
+                      <SelectItem key={cat.id_kategori} value={cat.id_kategori}>
+                        {cat.nama_kategori}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_id_supplier">Nama Distributor</Label>
+                <Select
+                  name="id_supplier"
+                  value={addFormData.id_supplier || undefined}
+                  onValueChange={(val) => handleAddSelectChange("id_supplier", val)}
+                >
+                  <SelectTrigger id="add_id_supplier">
+                    <SelectValue placeholder="- Pilih Nama Distributor -" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {distributorData.map((dist) => (
+                      <SelectItem key={dist.id_supplier} value={dist.id_supplier}>
+                        {dist.nama_supplier}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_harga">Harga Jual</Label>
+                <Input
+                  id="add_harga"
+                  name="harga"
+                  type="number"
+                  placeholder="0"
+                  value={addFormData.harga}
+                  onChange={handleAddInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_harga_modal">Harga Modal</Label>
+                <Input
+                  id="add_harga_modal"
+                  name="harga_modal"
+                  type="number"
+                  placeholder="0"
+                  value={addFormData.harga_modal}
+                  onChange={handleAddInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_stok">Jumlah/Stok</Label>
+                <Input
+                  id="add_stok"
+                  name="stok"
+                  type="number"
+                  placeholder="0"
+                  value={addFormData.stok}
+                  onChange={handleAddInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="add_warning">Warning Batas Stok</Label>
+                <Input
+                  id="add_warning"
+                  name="warning"
+                  type="number"
+                  placeholder="0"
+                  value={addFormData.warning}
+                  onChange={handleAddInputChange}
+                />
+              </div>
+
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="add_keterangan">Keterangan</Label>
+                <Textarea
+                  id="add_keterangan"
+                  name="keterangan"
+                  placeholder="Keterangan tambahan produk..."
+                  value={addFormData.keterangan}
+                  onChange={handleAddInputChange}
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-4 border-t gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsAddModalOpen(false)}
+              disabled={isSavingAdd}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSavingAdd}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isSavingAdd && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Simpan Produk
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }

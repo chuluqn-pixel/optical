@@ -235,11 +235,30 @@ export default function LaporanPemesananPage() {
     setSortConfig({ key, direction });
   };
 
-  const getNamaKaryawan = (id: string) => {
-    if (!penggunaData) return `ID: ${id}`;
-    // eslint-disable-next-line eqeqeq
-    const pengguna = penggunaData.find(p => p.id_user == id);
-    return pengguna ? pengguna.nama_lengkap : `ID: ${id}`;
+  const getNamaKaryawan = (id: string, item?: any) => {
+    if (item?.nama_karyawan) return item.nama_karyawan;
+    if (item?.nama_user) return item.nama_user;
+    if (item?.karyawan) return item.karyawan;
+    if (item?.kasir) return item.kasir;
+    if (!id || id === "undefined" || id === "null") return "-";
+
+    const cleanId = String(id).trim();
+    if (penggunaData && Array.isArray(penggunaData)) {
+      const pengguna = penggunaData.find((p) => {
+        if (!p) return false;
+        return (
+          (p.id_pengguna && String(p.id_pengguna).trim() === cleanId) ||
+          (p.id_user && String(p.id_user).trim() === cleanId) ||
+          (p.uid && String(p.uid).trim() === cleanId) ||
+          (p.email && String(p.email).toLowerCase().trim() === cleanId.toLowerCase()) ||
+          (p.username && String(p.username).toLowerCase().trim() === cleanId.toLowerCase())
+        );
+      });
+      if (pengguna) {
+        return pengguna.nama_lengkap || pengguna.username || pengguna.email || cleanId;
+      }
+    }
+    return cleanId;
   };
   
   const getProductName = (id_produk: string) => {
